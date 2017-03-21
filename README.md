@@ -95,3 +95,18 @@ To send HTML email set the `headers` parameter to a file containing the followin
 MIME-version: 1.0
 Content-Type: text/html; charset="UTF-8"
 ```
+## Build from the source
+
+Get yourself familiarized with `Godep` [https://github.com/tools/godep]. Download it and then add it your path. Then run
+
+
+```godep go build -o bin/check ./actions/check```
+
+```godep go build -o  bin/in ./actions/in```
+
+```godep go build -o bin/out ./actions/out```
+
+## To run the tests
+```cd tests```
+
+```godep go test```
