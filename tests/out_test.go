@@ -36,10 +36,12 @@ var _ = Describe("Out", func() {
 			From string   `json:"from"`
 		} `json:"source"`
 		Params struct {
-			Subject       string `json:"subject"`
-			Body          string `json:"body"`
-			SendEmptyBody bool   `json:"send_empty_body"`
-			Headers       string `json:"headers"`
+			Subject         string `json:"subject"`
+			TemplateSubject bool   `json:"istemplatesubject"`
+			Body            string `json:"body"`
+			TemplateBody    bool   `json:"istemplatebody"`
+			SendEmptyBody   bool   `json:"send_empty_body"`
+			Headers         string `json:"headers"`
 		} `json:"params"`
 	}
 
@@ -409,6 +411,55 @@ Subject: some subject line
 			inputBytes, _ := json.Marshal(inputs)
 
 			RunWithStdin(string(inputBytes), "../bin/out", sourceRoot)
+		})
+	})
+
+	Context("when the subject file is a template file", func() {
+		BeforeEach(func() {
+			inputs.Params.TemplateSubject = true
+			inputs.Params.Subject = ""
+			inputs.Params.Body = ""
+			inputs.Params.TemplateBody = false
+			os.Setenv("BUILD_JOB_NAME", "update-space-users")
+			os.Setenv("BUILD_PIPELINE_NAME", "cf-mgmt-updated")
+		})
+
+		It("should replace subject tempalte variables with build info", func() {
+			var err error
+			inputs.Params.Subject = "failure_subject_text.txt"
+			createSource(inputs.Params.Subject, "Build {{.BuildJobName }} of {{.BuildPipelineName}} pipeline failed")
+			Expect(err).NotTo(HaveOccurred())
+			inputBytes, _ := json.Marshal(inputs)
+			subjectText, err := RunWithStdinAllowError(string(inputBytes), "../bin/out", sourceRoot)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(subjectText).To(ContainSubstring("Build update-space-users"))
+		})
+	})
+
+	Context("when the body file is a template file", func() {
+		BeforeEach(func() {
+			inputs.Params.TemplateBody = true
+			inputs.Params.Body = ""
+			os.Setenv("ATC_EXTERNAL_URL", "http://192.168.100.4:8080")
+			os.Setenv("BUILD_NAME", "1485")
+			os.Setenv("BUILD_JOB_NAME", "update-space-users")
+			os.Setenv("BUILD_PIPELINE_NAME", "cf-mgmt-updated")
+			os.Setenv("BUILD_TEAM_NAME", "main")
+		})
+
+		It("should replace body tempalte variables with build info", func() {
+			var err error
+			inputs.Params.Subject = "subject_text.txt"
+			createSource(inputs.Params.Subject, "Build pipeline failed")
+			inputs.Params.Body = "failure_body_text.txt"
+			createSource(inputs.Params.Body, `Build {{.BuildName }} of job {{.BuildJobName }} for pipeline {{.BuildPipelineName}} failed.
+          Please see the build details here : {{.ExternalURL }}/teams/{{.BuildTeamName}}/pipelines/{{.BuildPipelineName}}/jobs/{{.BuildJobName}}/builds/{{.BuildName}}
+				`)
+			Expect(err).NotTo(HaveOccurred())
+			inputBytes, _ := json.Marshal(inputs)
+			bodyText, err := RunWithStdinAllowError(string(inputBytes), "../bin/out", sourceRoot)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(bodyText).To(ContainSubstring("http://192.168.100.4:8080/teams/main/pipelines/cf-mgmt-updated/jobs/update-space-users/builds/1485"))
 		})
 	})
 })

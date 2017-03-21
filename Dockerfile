@@ -1,4 +1,2 @@
-FROM progrium/busybox
-
-ADD ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+FROM ubuntu:latest
 ADD bin /opt/resource

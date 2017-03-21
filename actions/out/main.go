@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"io"
 	"io/ioutil"
 	"net/smtp"
@@ -32,11 +33,26 @@ func main() {
 			To   []string
 		}
 		Params struct {
-			Subject       string
-			Body          string
-			SendEmptyBody bool `json:"send_empty_body"`
-			Headers       string
+			Subject         string
+			TemplateSubject bool `json:"istemplatesubject"`
+			Body            string
+			TemplateBody    bool `json:"istemplatebody"`
+			SendEmptyBody   bool `json:"send_empty_body"`
+			Headers         string
 		}
+	}
+
+	type subjectBuildParams struct {
+		BuildJobName      string
+		BuildPipelineName string
+	}
+
+	type bodyBuildParams struct {
+		BuildName         string
+		BuildJobName      string
+		BuildPipelineName string
+		BuildTeamName     string
+		ExternalURL       string
 	}
 
 	inbytes, err := ioutil.ReadAll(os.Stdin)
@@ -71,7 +87,7 @@ func main() {
 	}
 
 	if indata.Params.Subject == "" {
-		fmt.Fprintf(os.Stderr, `missing required field "params.subject"`)
+		fmt.Fprintf(os.Stderr, `Subjectfile needs to be specified`)
 		os.Exit(1)
 	}
 
@@ -87,16 +103,82 @@ func main() {
 		}
 	}
 
+	convertTemplateText := func(sourcePath, destTemplateFile string, buildParams interface{}) (string, error) {
+		tmpl, err := template.ParseFiles(sourcePath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return "", err
+		}
+		destTemplateFile = filepath.Join(sourceRoot, destTemplateFile)
+		fmt.Fprintf(os.Stdout, "Destination template file path : %s\n", destTemplateFile)
+		writer, err := os.Create(destTemplateFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return "", err
+		}
+		defer writer.Close()
+		err = tmpl.Execute(writer, buildParams)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return "", err
+		}
+		bytes, err := ioutil.ReadFile(destTemplateFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s\n", err)
+			return "", err
+		}
+		fileText := string(bytes)
+		fmt.Fprintf(os.Stdout, "Final output: %s\n", fileText)
+		return fileText, nil
+	}
+
 	readSource := func(sourcePath string) (string, error) {
 		if !filepath.IsAbs(sourcePath) {
 			sourcePath = filepath.Join(sourceRoot, sourcePath)
 		}
-
 		bytes, err := ioutil.ReadFile(sourcePath)
-		return string(bytes), err
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "%s", err)
+			return "", err
+		}
+		return string(bytes), nil
 	}
 
-	subject, err := readSource(indata.Params.Subject)
+	convertSubjectTemplate := func(sourcePath string) (string, error) {
+		if !filepath.IsAbs(sourcePath) {
+			sourcePath = filepath.Join(sourceRoot, sourcePath)
+		}
+		fmt.Fprintf(os.Stdout, "\nSubject source path : %s\n", sourcePath)
+		buildParams := subjectBuildParams{os.Getenv("BUILD_JOB_NAME"), os.Getenv("BUILD_PIPELINE_NAME")}
+		fmt.Fprintf(os.Stdout, "Subject build params : %s \n", buildParams)
+		return convertTemplateText(sourcePath, "subject_template.txt", buildParams)
+	}
+
+	convertBodyTemplate := func(sourcePath string) (string, error) {
+		if !filepath.IsAbs(sourcePath) {
+			sourcePath = filepath.Join(sourceRoot, sourcePath)
+		}
+		fmt.Fprintf(os.Stdout, "\nBody source path : %s\n", sourcePath)
+
+		buildParams := bodyBuildParams{
+			os.Getenv("BUILD_NAME"),
+			os.Getenv("BUILD_JOB_NAME"),
+			os.Getenv("BUILD_PIPELINE_NAME"),
+			os.Getenv("BUILD_TEAM_NAME"),
+			os.Getenv("ATC_EXTERNAL_URL"),
+		}
+		fmt.Fprintf(os.Stdout, "Body build params : %s \n", buildParams)
+		return convertTemplateText(sourcePath, "body_template.txt", buildParams)
+	}
+
+	var subject string
+
+	if indata.Params.TemplateSubject {
+		subject, err = convertSubjectTemplate(indata.Params.Subject)
+	} else {
+		subject, err = readSource(indata.Params.Subject)
+	}
+
 	if err != nil {
 		fmt.Fprintf(os.Stderr, err.Error())
 		os.Exit(1)
@@ -115,7 +197,12 @@ func main() {
 
 	var body string
 	if indata.Params.Body != "" {
-		body, err = readSource(indata.Params.Body)
+		if indata.Params.TemplateBody {
+			body, err = convertBodyTemplate(indata.Params.Body)
+		} else {
+			body, err = readSource(indata.Params.Body)
+		}
+
 		if err != nil {
 			fmt.Fprintf(os.Stderr, err.Error())
 			os.Exit(1)

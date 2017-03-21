@@ -64,14 +64,28 @@ This is an output-only resource, so `check` and `in` actions are no-ops.
 * `subject`: *Required.* Path to plain text file containing the subject
 * `body`: *Required.* Path to file containing the email body.
 * `send_empty_body`: *Optional.* If true, send the email even if the body is empty (defaults to `false`).
+* `istemplatesubject` *Optional.* If true, subject file is assumed to contain concourse env variables to be replaced  (defaults to `false`).
+* `istemplatebody` *Optional.* If true, body file assumed to contain concourse en variables to be replaced  (defaults to `false`).
 
-For example, a build plan might contain this:
+
+A build plan might contain this:
 ```yaml
   - put: send-an-email
     params:
       subject: demo-prep-sha-email/generated-subject
       body: demo-prep-sha-email/generated-body
 ```
+
+If using template files, the generated subject and body files should contain place holders to be replaced with `Concourse` build metadata. For eg, a generated template file with Concourse metadata place holders would look something like this :
+
+
+```echo "Build {{.BuildJobName }} of {{.BuildPipelineName}} pipeline failed" >> ./emailout/email-subject-failure.txt```
+
+```echo "Build {{.BuildName }} of job {{.BuildJobName }} for pipeline {{.BuildPipelineName}} failed." >> ./emailout/email-body-failure.txt```
+
+```echo "Please see the build details here : {{.ExternalURL }}/teams/{{.BuildTeamName}}/pipelines/{{.BuildPipelineName}}/jobs/{{.BuildJobName}}/builds/{{.BuildName}}" >> ./emailout/email-body-failure.txt```
+
+
 
 #### HTML Email
 
