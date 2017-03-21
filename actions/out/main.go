@@ -124,7 +124,7 @@ func main() {
 		}
 		fileText := string(bytes)
 		//This print statement required so that the tests can grab the output
-		fmt.Fprintf(os.Stdout, "Output: %s\n", fileText)
+		fmt.Fprintf(os.Stdout, "Output : %s", fileText)
 		return fileText, nil
 	}
 
@@ -134,7 +134,6 @@ func main() {
 		}
 		bytes, err := ioutil.ReadFile(sourcePath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s", err)
 			return "", err
 		}
 		return string(bytes), nil
