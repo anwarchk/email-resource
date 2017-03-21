@@ -106,29 +106,25 @@ func main() {
 	convertTemplateText := func(sourcePath, destTemplateFile string, buildParams interface{}) (string, error) {
 		tmpl, err := template.ParseFiles(sourcePath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
 			return "", err
 		}
 		destTemplateFile = filepath.Join(sourceRoot, destTemplateFile)
-		fmt.Fprintf(os.Stdout, "Destination template file path : %s\n", destTemplateFile)
 		writer, err := os.Create(destTemplateFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
 			return "", err
 		}
 		defer writer.Close()
 		err = tmpl.Execute(writer, buildParams)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
 			return "", err
 		}
 		bytes, err := ioutil.ReadFile(destTemplateFile)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "%s\n", err)
 			return "", err
 		}
 		fileText := string(bytes)
-		fmt.Fprintf(os.Stdout, "Final output: %s\n", fileText)
+		//This print statement required so that the tests can grab the output
+		fmt.Fprintf(os.Stdout, "Output: %s\n", fileText)
 		return fileText, nil
 	}
 
@@ -148,9 +144,7 @@ func main() {
 		if !filepath.IsAbs(sourcePath) {
 			sourcePath = filepath.Join(sourceRoot, sourcePath)
 		}
-		fmt.Fprintf(os.Stdout, "\nSubject source path : %s\n", sourcePath)
 		buildParams := subjectBuildParams{os.Getenv("BUILD_JOB_NAME"), os.Getenv("BUILD_PIPELINE_NAME")}
-		fmt.Fprintf(os.Stdout, "Subject build params : %s \n", buildParams)
 		return convertTemplateText(sourcePath, "subject_template.txt", buildParams)
 	}
 
@@ -158,8 +152,6 @@ func main() {
 		if !filepath.IsAbs(sourcePath) {
 			sourcePath = filepath.Join(sourceRoot, sourcePath)
 		}
-		fmt.Fprintf(os.Stdout, "\nBody source path : %s\n", sourcePath)
-
 		buildParams := bodyBuildParams{
 			os.Getenv("BUILD_NAME"),
 			os.Getenv("BUILD_JOB_NAME"),
@@ -167,7 +159,6 @@ func main() {
 			os.Getenv("BUILD_TEAM_NAME"),
 			os.Getenv("ATC_EXTERNAL_URL"),
 		}
-		fmt.Fprintf(os.Stdout, "Body build params : %s \n", buildParams)
 		return convertTemplateText(sourcePath, "body_template.txt", buildParams)
 	}
 

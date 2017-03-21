@@ -451,7 +451,7 @@ Subject: some subject line
 			var err error
 			inputs.Params.Subject = "subject_text.txt"
 			createSource(inputs.Params.Subject, "Build pipeline failed")
-			inputs.Params.Body = "failure_body_text.txt"
+			inputs.Params.Body = "body_text.txt"
 			createSource(inputs.Params.Body, `Build {{.BuildName }} of job {{.BuildJobName }} for pipeline {{.BuildPipelineName}} failed.
           Please see the build details here : {{.ExternalURL }}/teams/{{.BuildTeamName}}/pipelines/{{.BuildPipelineName}}/jobs/{{.BuildJobName}}/builds/{{.BuildName}}
 				`)
